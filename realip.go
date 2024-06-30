@@ -3,8 +3,6 @@
 // Package realclientip provides strategies for obtaining the "real" client IP from HTTP requests.
 package main
 
- 
-
 import (
 	"fmt"
 	"net"

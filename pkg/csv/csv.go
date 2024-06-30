@@ -7,10 +7,6 @@ import (
 	"strconv"
 )
 
-// func Unmarshal(data [][]string, i interface{}) error {
-
-// }
-
 func Marshal(data interface{}) ([][]string, error) {
 	dataType := reflect.TypeOf(data)
 	if dataType.Kind() != reflect.Slice {
@@ -90,4 +86,96 @@ func marshalOne(dataVal reflect.Value, out []string) error {
 		out[i] = strValue
 	}
 	return nil
+}
+
+func Unmarshal(data [][]string, v interface{}) error {
+
+	sliceValPtr := reflect.ValueOf(v)
+	if sliceValPtr.Kind() != reflect.Ptr {
+		return fmt.Errorf("the [v interface] value should be of kind pointer to slice of struct, but %T was given", v)
+	}
+	sliceVal := sliceValPtr.Elem()
+	if sliceVal.Kind() != reflect.Slice {
+		return fmt.Errorf("the [v interface] value should be of kind pointer to slice of struct, but %T was given", v)
+	}
+
+	sliceStructType := sliceVal.Type().Elem()
+	if sliceStructType.Kind() != reflect.Struct {
+		return fmt.Errorf("the [v interface] value should be of kind pointer to slice of struct, but %T was given", v)
+	}
+
+	if len(data) == 0 {
+		sliceVal.Set(reflect.ValueOf([]interface{}{}))
+		return nil
+	}
+
+	headersIndexes := mapHeadersToIndexes(data[0])
+	for _, row := range data[1:] {
+		val, err := unmarshalOne(row, headersIndexes, sliceStructType)
+		if err != nil {
+			return err
+		}
+		sliceVal.Set(reflect.Append(sliceVal, val.Elem()))
+	}
+
+	return nil
+}
+
+func mapHeadersToIndexes(headers []string) map[string]int {
+	headersMapFelids := make(map[string]int, len(headers))
+	for index, header := range headers {
+		headersMapFelids[header] = index
+	}
+	return headersMapFelids
+}
+
+func unmarshalOne(row []string, headersIndexes map[string]int, t reflect.Type) (reflect.Value, error) {
+	ptr := reflect.New(t)
+	ptrVal := ptr.Elem()
+	for i := range t.NumField() {
+		header, ok := t.Field(i).Tag.Lookup("csv")
+		if !ok {
+			continue
+		}
+		indexInRow, ok := headersIndexes[header]
+		if !ok {
+			continue
+		}
+
+		field := ptrVal.Field(i)
+		rowVal := row[indexInRow]
+		switch field.Kind() {
+
+		case reflect.Int:
+			v, err := strconv.Atoi(rowVal)
+			if err != nil {
+				return reflect.ValueOf(nil), err
+			}
+			field.SetInt(int64(v))
+
+		case reflect.Float64, reflect.Float32:
+			var bitSize int
+			if field.Kind() == reflect.Float64 {
+				bitSize = 64
+			} else {
+				bitSize = 32
+			}
+			v, err := strconv.ParseFloat(rowVal, bitSize)
+			if err != nil {
+				return reflect.ValueOf(nil), err
+			}
+			field.SetFloat(v)
+
+		case reflect.Bool:
+			v, err := strconv.ParseBool(rowVal)
+			if err != nil {
+				return reflect.ValueOf(nil), err
+			}
+			field.SetBool(v)
+
+		case reflect.String:
+			field.SetString(rowVal)
+		}
+	}
+	return ptr, nil
 }

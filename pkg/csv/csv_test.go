@@ -1,6 +1,7 @@
 package csv
 
 import (
+ 
 	"reflect"
 	"testing"
 
@@ -71,4 +72,36 @@ func TestMarshal(t *testing.T) {
 
 	require.Nil(t, err)
 	require.Equal(t, ex, result)
+}
+func Test_Unmarshal(t *testing.T) {
+	data := [][]string{
+		{"author", "read_count", "price"},
+		{"nidal", "1", "1.1110000000"},
+		{"bakir", "2", "22.2220000000"},
+	}
+	type Book struct {
+		Price     float64 `csv:"price"`
+		ReadCount int     `csv:"read_count"`
+		Author    string  `csv:"author"`
+	}
+
+	res := new([]Book)
+	err := Unmarshal(data, res)
+
+	expectedArr := &[]Book{
+		{
+			Author:    "nidal",
+			ReadCount: 1,
+			Price:     1.1110000000,
+		},
+		{
+			Author:    "bakir",
+			ReadCount: 2,
+			Price:     22.2220000000,
+		},
+	}
+
+	require.Nil(t, err)
+	require.Equal(t, expectedArr, res)
+
 }
