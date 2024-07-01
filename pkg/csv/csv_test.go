@@ -15,11 +15,11 @@ func Test_extractHeader(t *testing.T) {
 		Price     float64 `csv:"price"`
 	}
 
-	headers, err := extractHeader(reflect.TypeOf(Book{}))
+	headers, err := extractHeadersFromStructTags(reflect.TypeOf(Book{}))
 	require.Equal(t, []string{"author", "read_count", "price"}, headers)
 	require.Nil(t, err)
 
-	headers, err = extractHeader(reflect.TypeOf(""))
+	headers, err = extractHeadersFromStructTags(reflect.TypeOf(""))
 	require.Nil(t, headers)
 	require.NotNil(t, err)
 }

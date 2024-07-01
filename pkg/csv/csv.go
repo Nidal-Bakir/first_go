@@ -8,24 +8,24 @@ import (
 )
 
 func Marshal(data interface{}) ([][]string, error) {
-	dataType := reflect.TypeOf(data)
-	if dataType.Kind() != reflect.Slice {
+	dataVal := reflect.ValueOf(data)
+	if dataVal.Kind() == reflect.Ptr {
+		dataVal = dataVal.Elem()
+	}
+	if dataVal.Kind() != reflect.Slice {
 		return nil, errors.New("the data should be of kind Slice")
 	}
-	dataElemType := dataType.Elem()
+	dataElemType := dataVal.Type().Elem()
 	if dataElemType.Kind() != reflect.Struct {
 		return nil, errors.New("the slice should be of type struct")
 	}
 
-	dataVal := reflect.ValueOf(data)
-
 	out := make([][]string, dataVal.Len()+1)
 
-	headers, err := extractHeader(dataElemType)
+	headers, err := extractHeadersFromStructTags(dataElemType)
 	if err != nil {
 		return nil, err
 	}
-
 	out[0] = headers
 
 	for i := 0; i < dataVal.Len(); i++ {
@@ -33,15 +33,14 @@ func Marshal(data interface{}) ([][]string, error) {
 		err = marshalOne(dataVal.Index(i), row)
 		if err != nil {
 			return nil, err
-		} else {
-			out[i+1] = row
 		}
+		out[i+1] = row
 	}
 
 	return out, nil
 }
 
-func extractHeader(rv reflect.Type) ([]string, error) {
+func extractHeadersFromStructTags(rv reflect.Type) ([]string, error) {
 	if rv.Kind() != reflect.Struct {
 		return nil, errors.New("the Type value should be of kind struct")
 	}
@@ -74,10 +73,14 @@ func marshalOne(dataVal reflect.Value, out []string) error {
 			strValue = fieldVal.String()
 		case reflect.Int:
 			strValue = strconv.FormatInt(fieldVal.Int(), 10)
-		case reflect.Float64:
-			strValue = strconv.FormatFloat(fieldVal.Float(), 'f', 10, 64)
-		case reflect.Float32:
-			strValue = strconv.FormatFloat(fieldVal.Float(), 'f', 10, 32)
+		case reflect.Float32, reflect.Float64:
+			var bitSize int
+			if fieldVal.Kind() == reflect.Float64 {
+				bitSize = 64
+			} else {
+				bitSize = 32
+			}
+			strValue = strconv.FormatFloat(fieldVal.Float(), 'f', 10, bitSize)
 		case reflect.Bool:
 			strValue = strconv.FormatBool(fieldVal.Bool())
 		default:
